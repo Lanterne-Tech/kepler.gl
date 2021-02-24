@@ -40,6 +40,8 @@ export const StyledLayerName = styled(CenterFlexbox)`
 `;
 
 const StyledTable = styled.table`
+  word-break: break-word;
+
   & .row__delta-value {
     text-align: right;
 
