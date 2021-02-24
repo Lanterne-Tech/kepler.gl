@@ -156,8 +156,6 @@ export function usePosition({layerHoverProp, x, y, mapW, mapH}, popover) {
     const node = popover.current;
 
     if (!node || !hoverData) {
-      console.log("No node or no hover data, returning ...");
-
       return;
     }
 
@@ -165,8 +163,6 @@ export function usePosition({layerHoverProp, x, y, mapW, mapH}, popover) {
     const height = Math.round(node.offsetHeight);
 
     if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
-      console.log("Calculating new position ...");
-
       const newPos = getPosition({
         x,
         y,
@@ -177,15 +173,7 @@ export function usePosition({layerHoverProp, x, y, mapW, mapH}, popover) {
         isLeft
       });
 
-      console.log("New position is " + newPos);
-
-      if (hasPosChanged({oldPos: pos, newPos})) {
-        console.log("Position has changed, chaning position!");
-
-        setPosition(newPos);
-      } else {
-        console.log("Position has not changed!");
-      }
+      setPosition(newPos);
     }
   }, [x, y, mapH, mapW, isLeft, hoverData, pos, popover]);
 
@@ -211,7 +199,9 @@ export default function MapPopoverFactory(LayerHoverInfo, CoordinateInfo) {
       popover
     );
 
-    console.log("Position is: " + pos);
+      if (pos && Object.keys(pos).length === 0 && pos.constructor === Object) {
+        console.log("Empty position!");
+      }
 
     return (
       <ErrorBoundary>
