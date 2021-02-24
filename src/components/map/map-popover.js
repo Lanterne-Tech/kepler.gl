@@ -173,12 +173,17 @@ export function usePosition({layerHoverProp, x, y, mapW, mapH}, popover) {
         isLeft
       });
 
-      setPosition(newPos);
+      if (hasPosChanged({oldPos: pos, newPos})) {
+        setPosition(newPos);
+      }
     }
   }, [x, y, mapH, mapW, isLeft, hoverData, pos, popover]);
 
   return {moveLeft, moveRight, isLeft, pos};
 }
+
+var oldNotEmptyPos;
+
 export default function MapPopoverFactory(LayerHoverInfo, CoordinateInfo) {
   /** @type {typeof import('./map-popover').MapPopover} */
   const MapPopover = ({
@@ -199,9 +204,9 @@ export default function MapPopoverFactory(LayerHoverInfo, CoordinateInfo) {
       popover
     );
 
-      if (pos && Object.keys(pos).length === 0 && pos.constructor === Object) {
-        console.log("Empty position!");
-      }
+    if (!(pos && Object.keys(pos).length === 0 && pos.constructor === Object)) {
+      oldNotEmptyPos = pos;
+    }
 
     return (
       <ErrorBoundary>
@@ -209,7 +214,7 @@ export default function MapPopoverFactory(LayerHoverInfo, CoordinateInfo) {
           ref={popover}
           className="map-popover"
           style={{
-            ...pos,
+            ...oldNotEmptyPos,
             maxWidth: MAX_WIDTH,
             maxHeight: MAX_HEIGHT
           }}
