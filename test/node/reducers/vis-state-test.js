@@ -49,7 +49,8 @@ import {
   geoJsonTripFilterProps,
   expectedDataToFeature,
   updatedGeoJsonLayer,
-  fields as geojsonFields
+  fields as geojsonFields,
+  rows as geojsonRows
 } from 'test/fixtures/geojson';
 
 import tripGeojson, {timeStampDomain, tripDataInfo} from 'test/fixtures/trip-geojson';
@@ -484,7 +485,8 @@ test('#visStateReducer -> LAYER_TYPE_CHANGE.3 -> animationConfig', t => {
     {
       ...DEFAULT_ANIMATION_CONFIG,
       domain: timeStampDomain,
-      currentTime: timeStampDomain[0]
+      currentTime: timeStampDomain[0],
+      defaultTimeFormat: 'L LTS'
     },
     'should update visState.animationConfig'
   );
@@ -522,7 +524,15 @@ test('#visStateReducer -> LAYER_CONFIG_CHANGE -> isVisible -> animationConfig', 
 
   t.deepEqual(
     nextState.animationConfig,
-    DEFAULT_ANIMATION_CONFIG,
+    {
+      domain: null,
+      currentTime: 1565577261000,
+      speed: 1,
+      isAnimating: false,
+      defaultTimeFormat: null,
+      timeFormat: null,
+      timezone: null
+    },
     'should set animationConfig to default'
   );
 
@@ -536,7 +546,8 @@ test('#visStateReducer -> LAYER_CONFIG_CHANGE -> isVisible -> animationConfig', 
     {
       ...nextState2.animationConfig,
       domain: timeStampDomain,
-      currentTime: timeStampDomain[0]
+      currentTime: timeStampDomain[0],
+      defaultTimeFormat: 'L LTS'
     },
     'should set animationConfig domain and currentTime'
   );
@@ -624,6 +635,40 @@ test('visStateReducer -> layerDataIdChangeUpdater', t => {
     [1, 2, 3],
     'should update new layer color'
   );
+
+  t.end();
+});
+
+test('visStateReducer -> layerDataIdChangeUpdater -> geojson', t => {
+  const initialState = CloneDeep(StateWFilesFiltersLayerColor).visState;
+  const nextState = reducer(
+    initialState,
+    // add another geojson
+    VisStateActions.updateVisData([
+      {
+        info: {id: 'geojson2', label: 'Some Geojson'},
+        data: {fields: geojsonFields, rows: geojsonRows.slice(0, 3)}
+      }
+    ])
+  );
+
+  // find geojson layer
+  const index = nextState.layers.findIndex(l => l.type === 'geojson');
+  const geojsonLayer = nextState.layers[index];
+  const id = geojsonLayer.id;
+  // change dataId
+  const nextState1 = reducer(
+    nextState,
+    VisStateActions.layerConfigChange(geojsonLayer, {
+      dataId: 'geojson2'
+    })
+  );
+
+  const neextGeojsonLayer = nextState1.layers.find(l => l.id === id);
+
+  t.equal(neextGeojsonLayer.config.dataId, 'geojson2', 'should update layer dataId');
+  t.equal(neextGeojsonLayer.dataToFeature.length, 3, 'should calculate dataToFeature');
+  t.equal(nextState1.layerData[index].data.length, 3, 'should calculate layerData');
 
   t.end();
 });
@@ -2391,7 +2436,8 @@ test('#visStateReducer -> setFilter.fixedDomain & DynamicDomain & gpu & cpu', t 
     animationWindow: 'free',
     fieldType: 'timestamp',
     gpu: true,
-    gpuChannel: [0]
+    gpuChannel: [0],
+    defaultTimeFormat: 'L LTS'
   };
 
   cmpFilters(t, expectedFilterTs, stateWidthTsFilter.filters[0]);
@@ -2414,7 +2460,8 @@ test('#visStateReducer -> setFilter.fixedDomain & DynamicDomain & gpu & cpu', t 
               enlarged: true,
               fixedDomain: true,
               value: [1474070995000, 1474072208000],
-              gpu: true
+              gpu: true,
+              defaultTimeFormat: 'L LTS'
             }
           }
         : f
@@ -2639,7 +2686,8 @@ test('#visStateReducer -> SET_FILTER_PLOT', t => {
     animationWindow: 'free',
     fieldType: 'timestamp',
     gpu: true,
-    gpuChannel: [0]
+    gpuChannel: [0],
+    defaultTimeFormat: 'L LTS'
   };
 
   // test filter
@@ -2864,7 +2912,7 @@ test('#visStateReducer -> SPLIT_MAP: REMOVE_LAYER', t => {
   t.end();
 });
 
-test('#visStateReducer -> SPLIT_MAP: REMOVE_LAYER', t => {
+test('#visStateReducer -> SPLIT_MAP: REMOVE_LAYER. set animation domain', t => {
   const layer1 = new PointLayer({id: 'a'});
   const layer2 = new PointLayer({id: 'b'});
   const layer3 = new TripLayer({id: 't1', isVisible: true});
@@ -2889,7 +2937,8 @@ test('#visStateReducer -> SPLIT_MAP: REMOVE_LAYER', t => {
   const newReducer = reducer(oldState, VisStateActions.removeLayer(2));
   const expectedAnimationConfig = {
     domain: [1568502810000, 1568503060000],
-    currentTime: 1568502970000
+    currentTime: 1568502970000,
+    defaultTimeFormat: 'L LTS'
   };
 
   t.deepEqual(
@@ -2901,7 +2950,8 @@ test('#visStateReducer -> SPLIT_MAP: REMOVE_LAYER', t => {
   const newReducer2 = reducer(oldState, VisStateActions.removeLayer(3));
   const expectedAnimationConfig2 = {
     domain: [1568502710000, 1568502960000],
-    currentTime: 1568502710000
+    currentTime: 1568502710000,
+    defaultTimeFormat: 'L LTS'
   };
   t.deepEqual(
     newReducer2.animationConfig,
@@ -2912,7 +2962,11 @@ test('#visStateReducer -> SPLIT_MAP: REMOVE_LAYER', t => {
   const newReducer3 = reducer(newReducer2, VisStateActions.removeLayer(2));
   t.deepEqual(
     newReducer3.animationConfig,
-    DEFAULT_ANIMATION_CONFIG,
+    {
+      domain: null,
+      currentTime: 1568502710000,
+      defaultTimeFormat: null
+    },
     'remove last animation layer and set animation config to default'
   );
 
@@ -4967,5 +5021,47 @@ test('#visStateReducer -> LOAD_FILES', async t => {
   loadFilesSuccessSpy.restore();
 
   loadFileErrSpy.restore();
+  t.end();
+});
+
+test('#visStateReducer -> setLayerAnimationTimeConfig', t => {
+  // change Trip layer isVisible
+  const nextState = reducer(
+    StateWTripGeojson.visState,
+    VisStateActions.setLayerAnimationTimeConfig({
+      timezone: 'America/New_York',
+      timeFormat: 'YYYY-MM-DD',
+      random: 1
+    })
+  );
+
+  t.equal(
+    nextState.animationConfig.timezone,
+    'America/New_York',
+    'should set animationConfig timezone'
+  );
+  t.equal(
+    nextState.animationConfig.timeFormat,
+    'YYYY-MM-DD',
+    'should set animationConfig timeFormat'
+  );
+  t.equal(nextState.animationConfig.random, undefined, 'should not set unknown key');
+  t.end();
+});
+
+test('#visStateReducer -> setFilterAnimationTimeConfig', t => {
+  // change Trip layer isVisible
+  const nextState = reducer(
+    StateWFilters.visState,
+    VisStateActions.setFilterAnimationTimeConfig(1, {timezone: 'America/New_York'})
+  );
+
+  t.equal(nextState, StateWFilters.visState, 'should not change if is not time filter');
+
+  const nextState1 = reducer(
+    StateWFilters.visState,
+    VisStateActions.setFilterAnimationTimeConfig(0, {timezone: 'America/New_York'})
+  );
+  t.equal(nextState1.filters[0].timezone, 'America/New_York', 'should set filter timeFormat');
   t.end();
 });
